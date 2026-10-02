@@ -1,0 +1,5 @@
+First public alpha.
+• Calendar of bills and income with flexible repeats
+• Fixed, range and varying amounts; change, move or skip single payments
+• Debt tracking with payoff dates; assets and net worth
+• Widgets, reminders, CSV export, backup and restore, themes

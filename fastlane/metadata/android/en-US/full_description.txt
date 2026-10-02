@@ -1,0 +1,27 @@
+<p>Billfold is a bill, income, wealth and debt tracker built around a month calendar. Bills show up on their due dates, and you check them off when they're paid. Everything stays on your phone: no account, no internet access, no tracking.</p>
+
+<p><b>Bills and income</b></p>
+<ul>
+<li>Calendar with colored categories, filters, and paid and overdue states</li>
+<li>Repeats every N days, weeks, months or years, twice a month, or once; end after a number of times or on a date</li>
+<li>Fixed amounts, ranges like $200–$300, or amounts that vary month to month</li>
+<li>Change one payment without touching the rest: enter what you actually paid, move it, or skip it</li>
+</ul>
+
+<p><b>Debt and wealth</b></p>
+<ul>
+<li>Link payments to a loan or card. Every payment you check off comes off the balance, with interest and a payoff date</li>
+<li>Track assets like savings, retirement, investments, precious metals and property, with contributions, growth and goals</li>
+<li>See your net worth at a glance</li>
+</ul>
+
+<p><b>And more</b></p>
+<ul>
+<li>Home-screen widgets for upcoming bills, this month and debt left</li>
+<li>Reminders before bills are due</li>
+<li>Choose how ranges and varying amounts are counted, separately for money coming in and going out</li>
+<li>CSV export for spreadsheets, backup and restore</li>
+<li>Six color themes, light and dark mode</li>
+</ul>
+
+<p>Billfold is in alpha. Back up your data from Settings now and then.</p>

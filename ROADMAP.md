@@ -7,8 +7,7 @@
 
 ## Before submitting to F-Droid
 - Convert the build to a standard Gradle Android project (F-Droid builds from source and won't use the prebuilt tools that `fetch_tools.sh` downloads)
-- Add F-Droid metadata (`fastlane/metadata/android/en-US/`: title, short and full description, screenshots, changelogs)
-- Write a short privacy statement (no network access, no tracking, data stays on the device)
+- Submit the app to F-Droid (store text, screenshots and privacy statement are ready)
 
 ## Ideas, not scheduled
 - Net worth on a widget; mark bills paid from the widget

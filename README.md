@@ -3,7 +3,15 @@
 **Alpha v0.5** · Android 8.0+ · License: GPL-3.0-or-later
 
 Billfold is a bill, income, wealth and debt tracker built around a month calendar.
-Bills show up on their due dates and you check them off when they're paid. Everything stays on your phone.
+Bills show up on their due dates and you check them off when they're paid.
+Everything stays on your phone: no account, no internet access, no tracking.
+
+<p>
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" width="200" alt="Calendar">
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3.png" width="200" alt="Debt">
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.png" width="200" alt="Wealth">
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.png" width="200" alt="Summary">
+</p>
 
 ## Features
 
@@ -20,8 +28,21 @@ Bills show up on their due dates and you check them off when they're paid. Every
 
 ## Install
 
-Download the APK from this repository's Releases page and open it on your phone (allow installs from that app when Android asks).
-Billfold is in alpha: back up your data from Settings → Backup now and then.
+1. Open the [latest release](https://github.com/dirty392/Billfold/releases) on your phone and download the `.apk` file.
+2. Open the downloaded file. If Android asks, allow installs from your browser or file manager.
+3. Open Billfold. To look around first, tap **Or try example data**; you can remove it later in Settings.
+
+Needs Android 8.0 or newer. Updates install over the old version and keep your data.
+
+**Billfold is in alpha.** Things may change between versions. Save a backup now and then from Settings → Backup.
+
+## Privacy
+
+Billfold has no internet permission, no account, no ads and no tracking. Your data never leaves your phone unless you export or back it up yourself. See [PRIVACY.md](PRIVACY.md).
+
+## Feedback
+
+Found a bug or have an idea? [Open an issue](https://github.com/dirty392/Billfold/issues).
 
 ## Build from source
 
@@ -42,7 +63,7 @@ To build your own copy, create your own key (`keytool -genkeypair -keystore rele
 - `src/com/billfold/app/` — Android shell: WebView host, JavaScript bridge, reminders, home-screen widgets.
 - `res/` — theme, launcher and notification icons, widget layouts.
 - `AndroidManifest.xml`, `build.sh`, `fetch_tools.sh`.
-- `BILLFOLD_GUIDE.md` — detailed technical reference.
+- `fastlane/metadata/` — store listing text, icon and screenshots (used by F-Droid).
 - `ROADMAP.md` — planned features and release notes.
 
 ## License
