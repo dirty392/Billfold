@@ -1,0 +1,9 @@
+<resources>
+    <color name="w_bg">#16201D</color>
+    <color name="w_fg">#E6EEEB</color>
+    <color name="w_fg2">#A3B2AC</color>
+    <color name="w_line">#2A3833</color>
+    <color name="w_track">#26332E</color>
+    <color name="w_accent">#5FD1A9</color>
+    <color name="w_danger">#FF8A80</color>
+</resources>
