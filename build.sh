@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 T=tools; B=build; rm -rf $B; mkdir -p $B/classes $B/dex
 $T/aapt2 compile --dir res -o $B/res.zip
 $T/aapt2 link -o $B/base.apk -I $T/android.jar --manifest AndroidManifest.xml -A assets \
-  --min-sdk-version 26 --target-sdk-version 34 --version-code 8 --version-name 0.5-alpha \
+  --min-sdk-version 26 --target-sdk-version 34 --version-code 9 --version-name 0.6-alpha \
   --java $B/gen $B/res.zip
 java -jar $T/ecj-3.45.0.jar -8 -nowarn -bootclasspath $T/android.jar -d $B/classes \
   $(find src $B/gen -name '*.java')

@@ -17,9 +17,14 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 public class MainActivity extends Activity {
@@ -42,6 +47,8 @@ public class MainActivity extends Activity {
         s.setDatabaseEnabled(true);
         s.setAllowFileAccess(true);
         s.setTextZoom(100);
+        // The page itself never goes online; only the metal price check below (Java, one fixed address) does.
+        s.setBlockNetworkLoads(true);
         web.addJavascriptInterface(new Bridge(), "Android");
         web.setWebViewClient(new WebViewClient() {
             @Override
@@ -157,6 +164,26 @@ public class MainActivity extends Activity {
         });
     }
 
+    private static String get(String address) throws Exception {
+        HttpURLConnection c = (HttpURLConnection) new URL(address).openConnection();
+        c.setConnectTimeout(8000);
+        c.setReadTimeout(8000);
+        c.setInstanceFollowRedirects(false);
+        c.setRequestProperty("Accept", "application/json");
+        try {
+            if (c.getResponseCode() != 200) throw new Exception("HTTP " + c.getResponseCode());
+            InputStream in = c.getInputStream();
+            ByteArrayOutputStream buf = new ByteArrayOutputStream();
+            byte[] b = new byte[4096];
+            int n;
+            while ((n = in.read(b)) > 0 && buf.size() < 65536) buf.write(b, 0, n);
+            in.close();
+            return new String(buf.toByteArray(), StandardCharsets.UTF_8);
+        } finally {
+            c.disconnect();
+        }
+    }
+
     private String notifyStatus() {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(NOTIFY_PERM) != PackageManager.PERMISSION_GRANTED) return "denied";
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
@@ -213,6 +240,40 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void setWidgetData(String json) {
             Widgets.save(MainActivity.this, json);
+        }
+
+        /** Live metal prices, only called when the user turned them on in Settings. Sends only the metal symbol and currency. */
+        @JavascriptInterface
+        public void fetchPrices(final String symbols, final String currency) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    JSONObject out = new JSONObject();
+                    JSONObject prices = new JSONObject();
+                    JSONArray failed = new JSONArray();
+                    String cur = currency != null && currency.matches("[A-Z]{3}") ? currency : "USD";
+                    try { out.put("cur", cur); } catch (Exception ignored) { }
+                    String[] syms = symbols == null ? new String[0] : symbols.split(",");
+                    for (int i = 0; i < syms.length && i < 8; i++) {
+                        String sym = syms[i].trim();
+                        if (!sym.matches("XAU|XAG|XPT|XPD|HG")) continue;
+                        try {
+                            JSONObject j = new JSONObject(get("https://api.gold-api.com/price/" + sym + "/" + cur));
+                            double p = j.optDouble("price", 0);
+                            if (!(p > 0)) throw new Exception("no price");
+                            JSONObject q = new JSONObject();
+                            q.put("price", p);
+                            q.put("updatedAt", j.optString("updatedAt", ""));
+                            q.put("currency", j.optString("currency", cur));
+                            prices.put(sym, q);
+                        } catch (Exception e) {
+                            failed.put(sym);
+                        }
+                    }
+                    try { out.put("prices", prices); out.put("failed", failed); } catch (Exception ignored) { }
+                    js("window.__prices && window.__prices(" + JSONObject.quote(out.toString()) + ")");
+                }
+            }).start();
         }
 
         @JavascriptInterface

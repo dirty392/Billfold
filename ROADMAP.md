@@ -17,6 +17,9 @@
 
 ## Release notes
 
+### v0.6-alpha (versionCode 9)
+Precious metals by weight: count gold, silver, platinum, palladium or copper in ounces, pounds or grams (or keep a plain value). Optional live spot prices (Settings → Metal prices, off by default) update every holding when the app opens; the app goes online only for that. Prices can also be typed in by hand.
+
 ### v0.5-alpha (versionCode 8)
 First public alpha. Same features as internal build 1.6, renumbered for release, licensed GPL-3.0-or-later.
 

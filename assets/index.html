@@ -285,6 +285,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .pctwrap { position: relative; }
 .pctwrap span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--fg-3); }
 .pctwrap input { font-family: var(--f-mono); padding-right: 30px; }
+.worth { height: 46px; display: flex; align-items: center; font-size: 16px; color: var(--save); overflow-wrap: anywhere; }
+.mprices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.mprices .field input { height: 42px; background: var(--bg); }
 .repbox { display: grid; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
 .repbox .field input, .repbox .field select { background: var(--surface); }
 .inline { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--fg-2); }
@@ -503,13 +506,30 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     <form class="form" id="a-form" novalidate>
       <div class="field"><label for="a-name">Name</label><input id="a-name" autocomplete="off" maxlength="60" placeholder="e.g. Gold coins, High-yield savings"></div>
       <div class="field"><span class="flabel"><label for="a-cat">Type</label><button type="button" class="linkbtn" data-act="cats">Edit types</button></span><select id="a-cat"></select></div>
+      <div id="a-metalbox" class="form" hidden>
+        <div class="field"><span class="flabel">Count it by</span>
+          <div class="seg flat" role="group" aria-label="Count it by">
+            <button type="button" data-aunit="ozt" aria-pressed="true">Ounces</button>
+            <button type="button" data-aunit="lb" aria-pressed="false">Pounds</button>
+            <button type="button" data-aunit="g" aria-pressed="false">Grams</button>
+            <button type="button" data-aunit="value" aria-pressed="false">Value</button>
+          </div>
+        </div>
+        <div class="two" id="a-weightbox">
+          <div class="field"><label for="a-metal">Metal</label><select id="a-metal"></select></div>
+          <div class="field"><label for="a-qty">How much</label><div class="pctwrap"><input id="a-qty" inputmode="decimal" placeholder="0"><span id="a-qtyunit">oz</span></div></div>
+          <div class="field"><label for="a-price" id="a-price-lbl">Price per oz</label><div class="amtwrap"><span class="cur">$</span><input id="a-price" inputmode="decimal" placeholder="0.00"></div></div>
+          <div class="field"><span class="flabel">Worth now</span><div class="worth num" id="a-worth">—</div></div>
+        </div>
+        <div class="fhint" id="a-metalhint"></div>
+      </div>
       <div class="two">
-        <div class="field"><label for="a-value">Value</label><div class="amtwrap"><span class="cur">$</span><input id="a-value" inputmode="decimal" placeholder="0.00"></div></div>
+        <div class="field" id="a-valrow"><label for="a-value">Value</label><div class="amtwrap"><span class="cur">$</span><input id="a-value" inputmode="decimal" placeholder="0.00"></div></div>
         <div class="field"><label for="a-asof">As of</label><input id="a-asof" type="date"></div>
-        <div class="field"><label for="a-rate">Growth per year</label><div class="pctwrap"><input id="a-rate" inputmode="decimal" placeholder="Optional"><span>%</span></div></div>
+        <div class="field" id="a-raterow"><label for="a-rate">Growth per year</label><div class="pctwrap"><input id="a-rate" inputmode="decimal" placeholder="Optional"><span>%</span></div></div>
         <div class="field"><label for="a-goal">Goal</label><div class="amtwrap"><span class="cur">$</span><input id="a-goal" inputmode="decimal" placeholder="Optional"></div></div>
       </div>
-      <div class="fhint">Contributions you check off on or after the “as of” date add to this value. When the value changes on its own, like a new metals price or a statement balance, enter the new value with today’s date.</div>
+      <div class="fhint" id="a-valhint">Contributions you check off on or after the “as of” date add to this value. When the value changes on its own, like a statement balance, enter the new value with today’s date.</div>
       <div class="repbox">
         <span class="flabel">Contributions</span>
         <div class="linked" id="a-linked"></div>
@@ -552,7 +572,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 <script>
 (function () {
   "use strict";
-  var VERSION = "0.5 alpha";
+  var VERSION = "0.6 alpha";
   var PAL = 13;
   var KINDS = ["bill", "income", "save"];
   var CAT_KINDS = ["bill", "income", "save", "asset", "debt"];
@@ -602,6 +622,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     graphite:  { name: "Graphite",  L: ["#2F3A45", "#E1E5EA", "#FFFFFF", "#F4F5F6", "#FFFFFF", "#EAECEF", "#D8DCE1"], D: ["#C8D2DC", "#262D34", "#11161B", "#0F1113", "#171A1D", "#202428", "#2E3338"] }
   };
   var CURRENCIES = [["USD","US dollar"],["CAD","Canadian dollar"],["EUR","Euro"],["GBP","British pound"],["AUD","Australian dollar"],["NZD","New Zealand dollar"],["MXN","Mexican peso"],["INR","Indian rupee"],["JPY","Japanese yen"],["PHP","Philippine peso"],["ZAR","South African rand"],["BRL","Brazilian real"]];
+  // Metals that can be counted by weight. Copper is quoted per pound, the rest per troy ounce.
+  // Prices are always stored per troy ounce in settings.metals.prices[symbol] = { p, cur, at, src: "live"|"manual" }.
+  var METALS = [["XAU", "Gold"], ["XAG", "Silver"], ["XPT", "Platinum"], ["XPD", "Palladium"], ["HG", "Copper"]];
+  var G_OZT = 31.1034768, G_LB = 453.59237, PRICE_HOST = "https://api.gold-api.com/price/";
+  var UNIT_SHORT = { ozt: "oz", lb: "lb", g: "g" };
+  function metalName(sym) { for (var i = 0; i < METALS.length; i++) if (METALS[i][0] === sym) return METALS[i][1]; return "Metal"; }
+  function isMetal(sym) { return METALS.some(function (m) { return m[0] === sym; }); }
+  function toOzt(q, unit) { return unit === "lb" ? q * G_LB / G_OZT : unit === "g" ? q / G_OZT : q; }
+  function quoteUnit(sym) { return sym === "HG" ? "lb" : "oz"; }
+  function quoteToOzt(sym, p) { return sym === "HG" ? p * G_OZT / G_LB : p; }
+  function oztToQuote(sym, p) { return sym === "HG" ? p * G_LB / G_OZT : p; }
+  function fmtQty(q) { return (Math.round(q * 1000) / 1000).toLocaleString("en-US", { maximumFractionDigits: 3 }); }
   var PRESETS = {
     none: { unit: "none" }, daily: { unit: "day", every: 1 }, weekly: { unit: "week", every: 1 },
     biweekly: { unit: "week", every: 2 }, semimonth: { unit: "semimonth" }, monthly: { unit: "month", every: 1 },
@@ -761,11 +793,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   function defaultCalc() { return { rangeOut: "up", rangeIn: "down", varyOut: "avg", varyIn: "avg", leftIncome: "all", leftWealth: true, soonDays: 3, autoPaid: false }; }
   function defaultSettings() {
     return { mode: "system", theme: "evergreen", weekStart: 0, currency: "USD", rem: { on: false, days: 1, time: "09:00", skipAuto: true },
-      calc: defaultCalc(), disp: { startTab: "cal", chip: "name", showPaid: true, stripCents: false }, defs: { bill: "monthly", income: "biweekly", save: "monthly" }, autoLast: null };
+      calc: defaultCalc(), disp: { startTab: "cal", chip: "name", showPaid: true, stripCents: false }, defs: { bill: "monthly", income: "biweekly", save: "monthly" }, autoLast: null,
+      metals: { live: false, prices: {}, lastTry: 0 } };
   }
   function mergeSettings(raw) {
     var d = defaultSettings(), s = Object.assign(d, raw || {});
-    ["rem", "calc", "disp", "defs"].forEach(function (k) { s[k] = Object.assign(defaultSettings()[k], (raw || {})[k] || {}); });
+    ["rem", "calc", "disp", "defs", "metals"].forEach(function (k) { s[k] = Object.assign(defaultSettings()[k], (raw || {})[k] || {}); });
+    if (!s.metals.prices || typeof s.metals.prices !== "object") s.metals.prices = {};
     return s;
   }
   function loadSettings() { return mergeSettings(lsGet(K_SET, {})); }
@@ -794,6 +828,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
       fmtWhole = new Intl.NumberFormat("en-US", { style: "currency", currency: S.set.currency, maximumFractionDigits: 0, minimumFractionDigits: 0 });
     } catch (e) { S.set.currency = "USD"; buildMoney(); return; }
     var sym = fmtWhole.formatToParts(0).filter(function (p) { return p.type === "currency"; }).map(function (p) { return p.value; })[0] || "$";
+    S.curSym = sym;
     document.querySelectorAll(".cur").forEach(function (el) { el.textContent = sym; });
   }
   function fmt(n) { return fmtFull.format(n || 0); }
@@ -932,12 +967,31 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     return st;
   }
   function linkedSaves(a) { return S.items.filter(function (it) { return kindOf(it) === "save" && it.assetId === a.id; }); }
+  // ---------- metal prices ----------
+  // The price to use for a metal: the latest live or typed-in price, as long as it's in the current currency.
+  function metalPrice(sym) {
+    var p = S.set.metals.prices[sym];
+    return p && p.cur === S.set.currency && +p.p > 0 ? p : null;
+  }
+  function hasHold(a) { return !!(a && a.hold && isMetal(a.hold.metal) && UNIT_SHORT[a.hold.unit]); }
+  function holdOzt(a) { return toOzt(+a.hold.qty || 0, a.hold.unit); }
+  // What the metal itself is worth right now, or null when no usable price is known.
+  function holdValue(a) { var p = metalPrice(a.hold.metal); return p ? r2(holdOzt(a) * p.p) : null; }
+  function priceWhen(p) {
+    var d = new Date(p.got || p.at), t = d.getTime();
+    if (isNaN(t)) return "";
+    var day = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    return day === todayStr() ? d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : nice(day);
+  }
+  function priceSource(p) { return p.src === "live" ? "Live price, updated " + priceWhen(p) : "Price you entered " + priceWhen(p); }
   // Value now = value on the as-of date + monthly growth + every checked-off linked contribution on/after that date.
   // Then project forward with scheduled contributions to find the next one and when a goal is reached.
   function assetState(a) {
-    var items = linkedSaves(a), rate = Math.max(0, +a.rate || 0) / 1200, as = isDate(a.asOf) ? a.asOf : todayStr(), today = todayStr();
+    var items = linkedSaves(a), hold = hasHold(a), rate = hold ? 0 : Math.max(0, +a.rate || 0) / 1200, as = isDate(a.asOf) ? a.asOf : todayStr(), today = todayStr();
     var ap = parse(as), tp = parse(today), asIdx = ap.y * 12 + ap.m, curIdx = tp.y * 12 + tp.m;
     var st = { start: +a.value || 0, value: 0, added: 0, growth: 0, next: null, goal: +a.goal || 0, goalBy: null, planned: 0 };
+    // A metal counted by weight is worth weight × spot price; with no price yet it keeps its last known value.
+    if (hold) { var hv = holdValue(a); st.metal = { ozt: holdOzt(a), price: metalPrice(a.hold.metal), priced: hv != null }; if (hv != null) st.start = hv; }
     var v = st.start, idx;
     function entries(i) { return items.length ? rawEntries(Math.floor(i / 12), i % 12, items).filter(function (e) { return !e.skipped && e.date >= as; }) : []; }
     for (idx = asIdx; idx <= curIdx; idx++) {
@@ -1160,17 +1214,26 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   }
   function assetCard(a) {
     var st = S.astate[a.id], goal = st.goal, gp = goal ? Math.min(100, Math.round(st.value / goal * 100)) : 0, ls = linkedSaves(a);
-    var f = [["Value on " + nice(a.asOf), fmt(a.value)]];
+    var f = [["Value on " + nice(a.asOf), fmt(a.value)]], mnote = "", hold = hasHold(a);
+    if (hold) {
+      var sym = a.hold.metal, pr = st.metal.price;
+      f = [["Holding", fmtQty(+a.hold.qty) + " " + UNIT_SHORT[a.hold.unit] + " " + metalName(sym).toLowerCase()]];
+      if (pr) f.push([metalName(sym) + " price", fmt(oztToQuote(sym, pr.p)) + "/" + quoteUnit(sym)]);
+      if (pr) mnote = priceSource(pr) + "." + (S.set.metals.live && S.priceErr ? " Couldn’t reach the price service, so this is the last price found." : "");
+      else mnote = S.set.metals.live ? (S.priceBusy ? "Checking the " + metalName(sym).toLowerCase() + " price…" : "Couldn’t get a " + metalName(sym).toLowerCase() + " price yet. Showing the last value saved.")
+        : "Enter a price per " + quoteUnit(sym) + " or turn on live prices in Settings to value this.";
+    }
     if (ls.length || st.added) f.push(["Added since", fmt(st.added)]);
-    if (+a.rate) { f.push(["Growth so far", fmt(st.growth)]); f.push(["Growth rate", (+a.rate) + "% a year"]); }
+    if (+a.rate && !hold) { f.push(["Growth so far", fmt(st.growth)]); f.push(["Growth rate", (+a.rate) + "% a year"]); }
     if (st.next) f.push(["Next contribution", fmt(st.next.amt) + " · " + nice(st.next.date)]);
     if (ls.length) f.push(["Adding", esc(ls.map(function (b) { return amountLabel(b) + " " + repText(b.rep, null, null).toLowerCase(); }).join(", ")), false]);
     var note = goal ? (st.value >= goal ? "<b>Goal reached.</b>" : st.goalBy ? "On track to reach the goal by <b>" + monthYear(st.goalBy) + "</b>." : "Add a regular contribution to see when you\u2019ll reach this goal.")
-      : (ls.length ? "" : "Tap to update the value or add a regular contribution.");
+      : (ls.length || hold ? "" : "Tap to update the value or add a regular contribution.");
+    if (mnote) note = esc(mnote) + (note ? " " + note : "");
     return '<button class="bigcard" data-asset="' + esc(a.id) + '" style="' + catVars(a.category, "asset") + '">' +
       '<div class="bc-top"><span class="bc-type"><span class="dot"></span>' + esc(cat(a.category, "asset").label) + '</span><span class="bc-edit">Edit</span></div>' +
       '<div class="bc-name">' + esc(a.name) + "</div>" +
-      '<div><div class="bc-amt num sav">' + fmt(st.value) + '</div><div class="bc-amtlbl">Current value</div></div>' +
+      '<div><div class="bc-amt num sav">' + fmt(st.value) + '</div><div class="bc-amtlbl">' + (hold && st.metal.priced ? (st.metal.price.src === "live" ? "Value at the spot price" : "Value at your price") : "Current value") + "</div></div>" +
       (goal ? '<div class="meter"><div class="bar cat" role="img" aria-label="' + gp + '% of goal"><i style="width:' + gp + '%"></i></div><div class="top2"><span>' + gp + "% of " + fmt(goal) + " goal</span><span>" + (st.value >= goal ? "Done" : fmt(goal - st.value) + " to go") + "</span></div></div>" : "") +
       factsHTML(f) + (note ? '<div class="note">' + note + "</div>" : "") + "</button>";
   }
@@ -1312,6 +1375,26 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
       chk("c-auto", "Check off autopay bills on their due date", c.autoPaid) +
       '<button class="btn ghost wide" data-act="calc-reset">Reset calculations to defaults</button></div>';
   }
+  function metalsCard() {
+    var m = S.set.metals, held = heldMetals(), status = "";
+    if (m.live) {
+      var lives = METALS.map(function (x) { return metalPrice(x[0]); }).filter(function (p) { return p && p.src === "live"; });
+      var last = lives.sort(function (a, b) { return (b.got || "").localeCompare(a.got || ""); })[0];
+      status = S.priceBusy ? "Checking prices…" : S.priceErr ? "Couldn’t reach the price service. Check your connection and try again." + (last ? " Last checked " + priceWhen(last) + "." : "")
+        : last ? "Updated " + priceWhen(last) + "." : "Prices will be checked now.";
+    }
+    var rows = METALS.map(function (x) {
+      var s = x[0], p = metalPrice(s), u = quoteUnit(s);
+      return '<div class="field"><label for="m-p-' + s + '">' + x[1] + " per " + u + '</label><div class="amtwrap"><span class="cur">' + esc(S.curSym || "$") + '</span><input id="m-p-' + s + '" inputmode="decimal" placeholder="Not set" value="' + (p ? money2(oztToQuote(s, p.p)) : "") + '"></div></div>';
+    }).join("");
+    return '<div class="card" id="metalsCard"><h3>Metal prices</h3>' +
+      chk("m-live", "Check live prices when the app opens", m.live) +
+      '<p class="hint">' + (m.live ? "Billfold uses the internet only for this. It asks gold-api.com for today’s spot prices in " + esc(S.set.currency) + " and sends nothing about you or your money."
+        : "Off: Billfold never goes online. Type prices below and every gold, silver, platinum, palladium or copper holding counted by weight is valued with them.") + "</p>" +
+      (m.live ? '<p class="hint' + (S.priceErr && !S.priceBusy ? " neg" : "") + '">' + esc(status) + "</p>" + '<button class="btn ghost wide" data-act="metal-refresh"' + (S.priceBusy ? " disabled" : "") + ">Check prices now</button>" : "") +
+      '<div class="mprices">' + rows + "</div>" +
+      (m.live ? '<p class="hint">A price you type is used until the next live check.</p>' : "") + "</div>";
+  }
   function renderSettings() {
     var s = S.set, r = s.rem;
     var modeSeg = '<div class="seg flat" role="group" aria-label="Light or dark">' + [["system", "Match phone"], ["light", "Light"], ["dark", "Dark"]].map(function (m) {
@@ -1336,7 +1419,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     var hasEx = S.items.some(function (b) { return b.example; }) || S.debts.some(function (d) { return d.example; }) || S.assets.some(function (a) { return a.example; });
     $("view-set").innerHTML = '<div class="set">' +
       '<div class="card"><h3>Appearance</h3>' + modeSeg + themes + "</div>" +
-      calcCard() +
+      calcCard() + metalsCard() +
       '<div class="card"><h3>Calendar &amp; display</h3>' +
         '<div class="srow"><label for="s-ws">Week starts on</label><select id="s-ws"><option value="0"' + (!s.weekStart ? " selected" : "") + '>Sunday</option><option value="1"' + (s.weekStart ? " selected" : "") + ">Monday</option></select></div>" +
         '<div class="srow"><label for="s-cur">Currency</label>' + cur + "</div>" +
@@ -1710,7 +1793,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   }
   function openAsset(id) {
     var a = id ? assetById(id) : null, st = a && S.astate[a.id];
-    S.assetEdit = { id: a ? a.id : null, links: a ? linkedSaves(a).map(function (b) { return b.id; }) : [] };
+    S.assetEdit = { id: a ? a.id : null, links: a ? linkedSaves(a).map(function (b) { return b.id; }) : [], unit: a ? (hasHold(a) ? a.hold.unit : "value") : "ozt" };
+    $("a-metal").value = hasHold(a) ? a.hold.metal : "XAU";
+    $("a-qty").value = hasHold(a) ? fmtQty(+a.hold.qty).replace(/,/g, "") : "";
+    fillMetalPrice();
     $("a-title").textContent = a ? "Edit " + a.name : "Add an asset";
     $("a-name").value = a ? a.name : "";
     fillCatSelect("a-cat", "asset", a ? a.category : "a-savings");
@@ -1723,10 +1809,43 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     $("a-camt").value = ""; $("a-cdate").value = todayStr(); $("a-crep").value = "monthly";
     $("a-err").textContent = st && st.value !== +a.value ? "" : "";
     $("a-del").hidden = !a; aDelArmed = false; $("a-del").textContent = "Delete"; $("a-del").classList.remove("armed");
-    renderALinked(); hideToast();
+    renderALinked(); syncMetalUI(); hideToast();
     $("assetScrim").hidden = false; $("assetScrim").querySelector(".sheet").scrollTop = 0;
   }
   function closeAsset() { $("assetScrim").hidden = true; S.assetEdit = null; }
+  // Precious metals can be counted by weight (value follows the price) or by a plain value.
+  $("a-metal").innerHTML = METALS.map(function (m) { return '<option value="' + m[0] + '">' + m[1] + "</option>"; }).join("");
+  function aWeight() { return !!S.assetEdit && $("a-cat").value === "a-metals" && S.assetEdit.unit !== "value"; }
+  function fillMetalPrice() {
+    var sym = $("a-metal").value, pr = metalPrice(sym);
+    $("a-price").value = pr ? money2(oztToQuote(sym, pr.p)) : "";
+  }
+  function syncMetalUI() {
+    var ae = S.assetEdit; if (!ae) return;
+    var w = aWeight(), sym = $("a-metal").value;
+    $("a-metalbox").hidden = $("a-cat").value !== "a-metals";
+    document.querySelectorAll("[data-aunit]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.aunit === ae.unit)); });
+    $("a-weightbox").hidden = !w; $("a-valrow").hidden = w; $("a-raterow").hidden = w;
+    $("a-qtyunit").textContent = UNIT_SHORT[ae.unit] || "oz";
+    $("a-price-lbl").textContent = "Price per " + quoteUnit(sym);
+    $("a-valhint").textContent = w ? "The value follows the price. Contributions you check off on or after the “as of” date add to it."
+      : "Contributions you check off on or after the “as of” date add to this value. When the value changes on its own, like a statement balance, enter the new value with today’s date.";
+    var pr = metalPrice(sym);
+    $("a-metalhint").textContent = !w ? "Count it in ounces, pounds or grams to have the value follow the " + (S.set.metals.live ? "live price." : "price.") :
+      S.set.metals.live ? "Live prices are on, so the price updates by itself each time you open Billfold." + (pr && pr.src === "live" ? " " + priceSource(pr) + "." : "")
+        : "This price is used for all your " + metalName(sym).toLowerCase() + ". Turn on live prices in Settings to keep it up to date by itself.";
+    updateWorth();
+  }
+  function updateWorth() {
+    if (!aWeight()) return;
+    var q = num($("a-qty").value), p = num($("a-price").value), sym = $("a-metal").value;
+    $("a-worth").textContent = q > 0 && p > 0 ? fmt(toOzt(q, S.assetEdit.unit) * quoteToOzt(sym, p)) : "—";
+  }
+  document.querySelectorAll("[data-aunit]").forEach(function (b) { b.addEventListener("click", function () { S.assetEdit.unit = b.dataset.aunit; syncMetalUI(); }); });
+  $("a-cat").addEventListener("change", syncMetalUI);
+  $("a-metal").addEventListener("change", function () { fillMetalPrice(); syncMetalUI(); });
+  $("a-qty").addEventListener("input", updateWorth);
+  $("a-price").addEventListener("input", updateWorth);
   $("a-newc").addEventListener("change", function () { $("a-newbox").hidden = !this.checked; });
   $("a-linkbtn").addEventListener("click", function () { var v = $("a-linksel").value; if (v) { S.assetEdit.links.push(v); renderALinked(); } });
   $("a-linked").addEventListener("click", function (e) {
@@ -1739,6 +1858,16 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     var name = $("a-name").value.trim(), val = num($("a-value").value), asOf = $("a-asof").value;
     var rate = $("a-rate").value.trim() === "" ? 0 : num($("a-rate").value), goal = $("a-goal").value.trim() === "" ? 0 : num($("a-goal").value);
     if (!name) return err("Give the asset a name.", "a-name");
+    var w = aWeight(), sym = $("a-metal").value, qty = num($("a-qty").value), pq = $("a-price").value.trim() === "" ? 0 : num($("a-price").value);
+    if (w) {
+      if (isNaN(qty) || qty <= 0) return err("Enter how much " + metalName(sym).toLowerCase() + " you have, like 10.", "a-qty");
+      if (isNaN(pq) || pq < 0) return err("Enter the price per " + quoteUnit(sym) + " as a number, like 42.50.", "a-price");
+      if (!pq && !S.set.metals.live) return err("Enter the price per " + quoteUnit(sym) + ", or turn on live prices in Settings.", "a-price");
+      var old0 = S.assetEdit.id ? assetById(S.assetEdit.id) : null, known = metalPrice(sym);
+      if (pq && (!known || money2(oztToQuote(sym, known.p)) !== money2(pq))) setMetalPrice(sym, quoteToOzt(sym, pq), "manual");
+      var pNow = metalPrice(sym);
+      val = pNow ? r2(toOzt(qty, S.assetEdit.unit) * pNow.p) : (old0 ? +old0.value || 0 : 0);
+    }
     if (isNaN(val) || val < 0) return err("Enter what it's worth, like 2650.", "a-value");
     if (!isDate(asOf)) return err("Pick the date that value is from.", "a-asof");
     if (isNaN(rate) || rate < 0 || rate > 100) return err("Enter the growth rate as a percent, like 4.5, or leave it empty.", "a-rate");
@@ -1747,10 +1876,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     if (nc && (isNaN(camt) || camt <= 0)) return err("Enter the contribution amount, or turn off \u201cAdd a regular contribution\u201d.", "a-camt");
     if (nc && !isDate(cdate)) return err("Pick the date of the first contribution.", "a-cdate");
     var old = S.assetEdit.id ? assetById(S.assetEdit.id) : null;
-    var a = { id: old ? old.id : newId("a"), name: name, category: $("a-cat").value || FALLBACK.asset, value: r2(val), asOf: asOf, rate: rate ? r2(rate) : 0, note: $("a-note").value.trim() };
+    var a = { id: old ? old.id : newId("a"), name: name, category: $("a-cat").value || FALLBACK.asset, value: r2(val), asOf: asOf, rate: rate && !w ? r2(rate) : 0, note: $("a-note").value.trim() };
+    if (w) a.hold = { metal: sym, qty: Math.round(qty * 10000) / 10000, unit: S.assetEdit.unit };
     if (goal > 0) a.goal = r2(goal);
     if (old && old.example) a.example = true;
     if (old) S.assets[S.assets.indexOf(old)] = a; else S.assets.push(a);
+    if (syncHoldValues() || w) saveSettings();
     S.items.forEach(function (b) {
       if (b.assetId === a.id && S.assetEdit.links.indexOf(b.id) < 0) delete b.assetId;
       if (S.assetEdit.links.indexOf(b.id) >= 0) b.assetId = a.id;
@@ -1803,7 +1934,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     $("catScrim").hidden = true; S.pickerFor = null; saveCats();
     if (!$("scrim").hidden) fillCatSelect("f-cat", S.formKind, $("f-cat").value);
     if (!$("debtScrim").hidden) fillCatSelect("d-cat", "debt", $("d-cat").value);
-    if (!$("assetScrim").hidden) fillCatSelect("a-cat", "asset", $("a-cat").value);
+    if (!$("assetScrim").hidden) { fillCatSelect("a-cat", "asset", $("a-cat").value); syncMetalUI(); }
     render();
   }
   $("catDone").addEventListener("click", closeCats);
@@ -1904,7 +2035,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
       S.assets.forEach(function (a) {
         var st = S.astate[a.id];
         rows.push([a.name, cat(a.category, "asset").label, (+a.value).toFixed(2), a.asOf, a.rate ? String(a.rate) : "", st.added.toFixed(2), st.growth.toFixed(2), st.value.toFixed(2),
-          a.goal ? (+a.goal).toFixed(2) : "", a.goal ? (st.value >= a.goal ? "Reached" : st.goalBy || "") : "", a.note || ""]);
+          a.goal ? (+a.goal).toFixed(2) : "", a.goal ? (st.value >= a.goal ? "Reached" : st.goalBy || "") : "",
+          (hasHold(a) ? fmtQty(+a.hold.qty) + " " + UNIT_SHORT[a.hold.unit] + " " + metalName(a.hold.metal).toLowerCase() + (a.note ? ". " : "") : "") + (a.note || "")]);
       });
       rows.push([]);
       rows.push(["Net worth", "", "", "", "", "", "", (totalAssets() - totalDebt()).toFixed(2)]);
@@ -2003,6 +2135,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
       "c-leftInc": ["calc", "leftIncome"], "c-soon": ["calc", "soonDays", 1], "d-start": ["disp", "startTab"], "d-chip": ["disp", "chip"],
       "n-bill": ["defs", "bill"], "n-income": ["defs", "income"], "n-save": ["defs", "save"] };
     var BOOL = { "c-leftWealth": ["calc", "leftWealth"], "d-paid": ["disp", "showPaid"], "d-cents": ["disp", "stripCents"] };
+    if (id === "m-live") {
+      s.metals.live = on; S.priceErr = false; saveSettings();
+      if (on) refreshPrices(true);
+      render(); toast(on ? "Live metal prices on" : "Live metal prices off. Billfold stays offline"); return;
+    }
+    if (id.indexOf("m-p-") === 0) {
+      var sym = id.slice(4), pv = v.trim() === "" ? 0 : num(v);
+      if (!isMetal(sym)) return;
+      if (isNaN(pv) || pv < 0) { toast("Enter the price as a number, like 42.50"); render(); return; }
+      if (pv) setMetalPrice(sym, quoteToOzt(sym, pv), "manual"); else delete s.metals.prices[sym];
+      saveSettings(); syncHoldValues(); syncReminders(); render(); return;
+    }
     if (MAP[id]) { s[MAP[id][0]][MAP[id][1]] = MAP[id][2] ? +v : v; saveSettings(); syncReminders(); render(); return; }
     if (BOOL[id]) { s[BOOL[id][0]][BOOL[id][1]] = on; saveSettings(); syncReminders(); render(); return; }
     if (id === "c-auto") {
@@ -2010,7 +2154,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
       saveSettings(); autoCheck(); render(); toast(on ? "Autopay bills will be checked off on their due date" : "Autopay bills stay unchecked until you check them"); return;
     }
     if (id === "s-ws") s.weekStart = +e.target.value;
-    else if (id === "s-cur") { s.currency = e.target.value; buildMoney(); }
+    else if (id === "s-cur") { s.currency = e.target.value; buildMoney(); S.priceErr = false; refreshPrices(true); }
     else if (id === "s-rem") {
       s.rem.on = e.target.checked;
       if (s.rem.on && NATIVE && NATIVE.requestNotify) { try { NATIVE.requestNotify(); } catch (x) {} }
@@ -2042,6 +2186,60 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     if (changed) { saveItems(); toast("Checked off " + changed + " autopay " + (changed === 1 ? "item" : "items")); }
   }
 
+  // ---------- live metal prices ----------
+  // Only when the user turns it on. The Android app asks gold-api.com for each metal's price in the chosen
+  // currency (nothing else is sent). In a plain browser the page asks directly. A failed check keeps the last price.
+  function setMetalPrice(sym, pOzt, src, at) {
+    var nowIso = new Date().toISOString();
+    S.set.metals.prices[sym] = { p: Math.round(pOzt * 10000) / 10000, cur: S.set.currency, at: at || nowIso, got: nowIso, src: src };
+  }
+  // Keep each weighed holding's saved value in step with the price, so backups and exports show it too.
+  function syncHoldValues() {
+    var ch = false;
+    S.assets.forEach(function (a) { if (!hasHold(a)) return; var v = holdValue(a); if (v != null && v !== +a.value) { a.value = v; ch = true; } });
+    if (ch) lsSet(K_ASSETS, S.assets);
+    return ch;
+  }
+  function heldMetals() { var h = {}; S.assets.forEach(function (a) { if (hasHold(a)) h[a.hold.metal] = 1; }); return Object.keys(h); }
+  var PRICE_WAIT = 10 * 60 * 1000;
+  function refreshPrices(force) {
+    var m = S.set.metals;
+    if (!m.live || S.priceBusy) return;
+    var fresh = heldMetals().every(function (s) { var p = metalPrice(s); return p && p.src === "live"; });
+    if (!force && fresh && Date.now() - (+m.lastTry || 0) < PRICE_WAIT) return;
+    S.priceBusy = true; m.lastTry = Date.now(); saveSettings();
+    var syms = METALS.map(function (x) { return x[0]; }), cur = S.set.currency;
+    if (NATIVE && typeof NATIVE.fetchPrices === "function") {
+      try { NATIVE.fetchPrices(syms.join(","), cur); } catch (e) { window.__prices(JSON.stringify({ cur: cur, prices: {}, failed: syms })); }
+    } else if (window.fetch) {
+      Promise.all(syms.map(function (s) {
+        return fetch(PRICE_HOST + s + "/" + cur).then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (j) { return [s, j]; }, function () { return [s, null]; });
+      })).then(function (res) {
+        var out = { cur: cur, prices: {}, failed: [] };
+        res.forEach(function (x) { if (x[1] && +x[1].price > 0) out.prices[x[0]] = { price: +x[1].price, updatedAt: x[1].updatedAt, currency: x[1].currency }; else out.failed.push(x[0]); });
+        window.__prices(JSON.stringify(out));
+      });
+    } else { S.priceBusy = false; return; }
+    if (S.tab === "set" || S.tab === "nest") render();
+  }
+  window.__prices = function (json) {
+    var d; try { d = typeof json === "string" ? JSON.parse(json) : json; } catch (e) { d = null; }
+    S.priceBusy = false;
+    var got = 0, held = heldMetals();
+    if (d && d.prices && d.cur === S.set.currency) {
+      Object.keys(d.prices).forEach(function (s) {
+        var q = d.prices[s];
+        if (!isMetal(s) || !q || !(+q.price > 0) || (q.currency && q.currency !== d.cur)) return;
+        setMetalPrice(s, quoteToOzt(s, +q.price), "live", q.updatedAt); got++;
+      });
+    }
+    S.priceErr = !d || held.some(function (s) { return !(d.prices && d.prices[s]); }) || (!held.length && !got);
+    saveSettings();
+    if (syncHoldValues()) syncReminders();
+    render();
+  };
+
   // ---------- toast ----------
   var toastTimer;
   function toast(msg, undo) {
@@ -2063,7 +2261,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     S.assets.push({ id: aEm, name: "High-yield savings", category: "a-savings", value: 3200, asOf: as0, rate: 4.3, goal: 10000, note: "", example: true });
     S.assets.push({ id: aIra, name: "Roth IRA", category: "a-retire", value: 8400, asOf: as0, rate: 0, note: "", example: true });
     S.assets.push({ id: aVac, name: "Vacation fund", category: "a-savings", value: 450, asOf: as0, rate: 0, goal: 2000, note: "", example: true });
-    S.assets.push({ id: newId("a"), name: "Gold & silver coins", category: "a-metals", value: 2650, asOf: todayStr(), rate: 0, note: "Update with the spot price now and then", example: true });
+    S.assets.push({ id: newId("a"), name: "Silver coins", category: "a-metals", value: 2650, asOf: todayStr(), rate: 0, hold: { metal: "XAG", qty: 40, unit: "ozt" }, note: "", example: true });
+    S.assets.push({ id: newId("a"), name: "Gold bar", category: "a-metals", value: 4150, asOf: todayStr(), rate: 0, hold: { metal: "XAU", qty: 31.1, unit: "g" }, note: "", example: true });
     S.assets.push({ id: newId("a"), name: "Checking account", category: "a-checking", value: 1850, asOf: todayStr(), rate: 0, note: "", example: true });
     S.assets.push({ id: newId("a"), name: "2021 Honda Civic", category: "a-vehicle", value: 17500, asOf: todayStr(), rate: 0, note: "", example: true });
     // [kind, name, amount, day, repeat, category, autopay, extra]
@@ -2154,7 +2353,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
         if (!pr.assets) migrateAssets(true);
         if (pr.settings) S.set = mergeSettings(pr.settings);
         lsSet(K_CATS, S.cats); S.cats = loadCats();
-        saveItems(); saveDebts(); saveAssets(); saveCats(); saveSettings(); buildMoney(); applyTheme(); render(); toast("Restored " + S.items.length + " items");
+        saveItems(); saveDebts(); saveAssets(); saveCats(); saveSettings(); buildMoney(); applyTheme(); render(); refreshPrices(true); toast("Restored " + S.items.length + " items");
       }
       return;
     }
@@ -2165,6 +2364,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
       else if (a === "add-save") openSheet(null, S.sel, "save");
       else if (a === "add-debt") openDebt(null);
       else if (a === "add-asset") openAsset(null);
+      else if (a === "metal-refresh") { S.priceErr = false; refreshPrices(true); }
       else if (a === "examples") addExamples();
       else if (a === "clearex") clearExamples();
       else if (a === "cats") openCats();
@@ -2208,7 +2408,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     return false;
   };
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") window.__back(); });
-  window.__test = { widgetData: function () { return widgetData(); }, occurrences: occurrences, repText: repText, csv: toCSV, debtState: debtState, assetState: assetState, migrate: migrateAssets, planned: planned, autoCheck: function () { autoCheck(); }, leftOf: function (t) { return leftOf(t); }, S: S, monthEntries: monthEntries };
+  window.__test = { widgetData: function () { return widgetData(); }, occurrences: occurrences, repText: repText, csv: toCSV, debtState: debtState, assetState: assetState, migrate: migrateAssets, metalPrice: metalPrice, setMetalPrice: setMetalPrice, refreshPrices: refreshPrices, toOzt: toOzt, planned: planned, autoCheck: function () { autoCheck(); }, leftOf: function (t) { return leftOf(t); }, S: S, monthEntries: monthEntries };
 
   S.cats = loadCats();
   S.items = loadItems();
@@ -2219,8 +2419,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   migrateAssets(false);
   if (["cal", "list", "nest", "debt", "sum"].indexOf(S.set.disp.startTab) >= 0) { S.tab = S.lastTab = S.set.disp.startTab; }
   autoCheck();
-  buildMoney(); applyTheme(); render(); pushReminders(); pushWidgets();
-  document.addEventListener("visibilitychange", function () { if (!document.hidden) { autoCheck(); render(); pushWidgets(); } });
+  buildMoney(); applyTheme(); render(); pushReminders(); pushWidgets(); refreshPrices(true);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) { autoCheck(); render(); pushWidgets(); refreshPrices(false); } });
 })();
 </script>
 </body>

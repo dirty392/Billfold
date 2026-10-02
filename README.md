@@ -4,7 +4,7 @@
 
 Billfold is a bill, income, wealth and debt tracker built around a month calendar.
 Bills show up on their due dates and you check them off when they're paid.
-Everything stays on your phone: no account, no internet access, no tracking.
+Everything stays on your phone: no account, no tracking, and offline unless you turn on live metal prices.
 
 <p>
 <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" width="200" alt="Calendar">
@@ -20,7 +20,7 @@ Everything stays on your phone: no account, no internet access, no tracking.
 - **Fixed, range ($200–$300) and varying amounts**, with settings for how unpaid amounts are counted, separately for money in and out
 - **Per-payment changes**: enter the actual amount, move one payment, or skip it
 - **Debt tracking**: link payments to a loan or card; checked-off payments come off the balance, with interest and a payoff date
-- **Wealth**: assets (savings, retirement, investments, precious metals, property and more) with linked contributions, growth and goals
+- **Wealth**: assets (savings, retirement, investments, precious metals, property and more) with linked contributions, growth and goals; metals by weight with optional live spot prices
 - **Net worth** on the Summary tab
 - **Home-screen widgets**: upcoming bills, this month, debt left
 - **Bill reminders** (notifications)
@@ -38,7 +38,7 @@ Needs Android 8.0 or newer. Updates install over the old version and keep your d
 
 ## Privacy
 
-Billfold has no internet permission, no account, no ads and no tracking. Your data never leaves your phone unless you export or back it up yourself. See [PRIVACY.md](PRIVACY.md).
+Billfold has no account, no ads and no tracking. It only goes online if you turn on live metal prices, and then it asks for prices only. Your data never leaves your phone unless you export or back it up yourself. See [PRIVACY.md](PRIVACY.md).
 
 ## Feedback
 

@@ -1,4 +1,4 @@
-<p>Billfold is a bill, income, wealth and debt tracker built around a month calendar. Bills show up on their due dates, and you check them off when they're paid. Everything stays on your phone: no account, no internet access, no tracking.</p>
+<p>Billfold is a bill, income, wealth and debt tracker built around a month calendar. Bills show up on their due dates, and you check them off when they're paid. Everything stays on your phone: no account, no tracking, and offline unless you turn on live metal prices.</p>
 
 <p><b>Bills and income</b></p>
 <ul>

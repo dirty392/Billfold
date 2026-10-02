@@ -1,0 +1,1 @@
+Precious metals by weight: count gold, silver, platinum, palladium or copper in ounces, pounds or grams, or keep a plain value. New optional live spot prices (Settings > Metal prices, off by default) update your metals each time you open the app. This is the only time Billfold goes online, and it sends only the metal and currency. You can also type prices yourself.
